@@ -1,0 +1,79 @@
+# Install required packages (run once)
+!pip install pandas seaborn matplotlib plotly scikit-learn
+
+# Imports
+import pandas as pd
+import numpy as np
+import seaborn as sns
+import matplotlib.pyplot as plt
+import plotly.express as px
+from scipy import stats
+import warnings
+warnings.filterwarnings('ignore')
+
+# Set style
+plt.style.use('seaborn-v0_8')
+sns.set_palette("husl")
+
+# Load Wine Quality dataset (red wine)
+url = "https://archive.ics.uci.edu/ml/machine-learning-databases/wine-quality/winequality-red.csv"
+df = pd.read_csv(url, sep=';')
+
+# Basic inspection
+print("Dataset Shape:", df.shape)
+print("\nFirst 5 rows:")
+print(df.head())
+print("\nDataset Info:")
+print(df.info())
+print("\nSummary Statistics:")
+print(df.describe())
+
+# Check data quality
+print("Missing values:\n", df.isnull().sum())
+print("\nDuplicates:", df.duplicated().sum())
+
+# Target distribution
+plt.figure(figsize=(8,5))
+sns.countplot(data=df, x='quality')
+plt.title('Quality Distribution (Imbalanced!)')
+plt.show()
+
+# Select numeric columns
+numeric_cols = df.select_dtypes(include=[np.number]).columns
+
+# Distribution plots (6 key features)
+fig, axes = plt.subplots(2, 3, figsize=(15,10))
+axes = axes.ravel()
+
+for idx, col in enumerate(['fixed acidity', 'volatile acidity', 'citric acid', 'alcohol', 'pH', 'quality']):
+    sns.histplot(df[col], kde=True, ax=axes[idx])
+    axes[idx].set_title(f'{col} Distribution')
+    axes[idx].axvline(df[col].mean(), color='red', linestyle='--', label='Mean')
+    axes[idx].legend()
+
+plt.tight_layout()
+plt.show()
+
+# Boxplots: Quality vs Key Features
+key_features = ['alcohol', 'volatile acidity', 'citric acid', 'sulphates']
+fig, axes = plt.subplots(2, 2, figsize=(12,10))
+axes = axes.ravel()
+
+for idx, feature in enumerate(key_features):
+    sns.boxplot(data=df, x='quality', y=feature, ax=axes[idx])
+    axes[idx].set_title(f'{feature} by Quality')
+    axes[idx].tick_params(axis='x', rotation=45)
+
+plt.tight_layout()
+plt.show()
+
+
+# Correlation matrix
+plt.figure(figsize=(12,8))
+correlation_matrix = df.corr()
+mask = np.triu(np.ones_like(correlation_matrix, dtype=bool))
+sns.heatmap(correlation_matrix, mask=mask, annot=True, cmap='coolwarm', center=0,
+            square=True, fmt='.2f', cbar_kws={"shrink": .8})
+plt.title('Feature Correlation Heatmap')
+plt.tight_layout()
+plt.show()
