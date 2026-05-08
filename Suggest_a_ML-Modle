@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AutoML Advisor — Dataset → Model Recommendation</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --glass-bg: rgba(255,255,255,0.07);
+    --glass-border: rgba(255,255,255,0.15);
+    --glass-hover: rgba(255,255,255,0.12);
+    --accent1: #7c3aed;
+    --accent2: #06b6d4;
+    --accent3: #10b981;
+    --text-primary: #f1f5f9;
+    --text-secondary: rgba(241,245,249,0.65);
+    --text-muted: rgba(241,245,249,0.4);
+  }
+
+  body {
+    font-family: 'Space Grotesk', sans-serif;
+    background: #0a0a14;
+    color: var(--text-primary);
+    min-height: 100vh;
+    overflow-x: hidden;
+    position: relative;
+  }
+
+  body::before {
+    content: '';
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background:
+      radial-gradient(ellipse 80% 60% at 20% 10%, rgba(124,58,237,0.15) 0%, transparent 60%),
+      radial-gradient(ellipse 60% 50% at 85% 80%, rgba(6,182,212,0.12) 0%, transparent 55%);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  body::after {
+    content: '';
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background-image: linear-gradient(rgba(255,255,255,0.02) 1px, transparent 1px),
+                      linear-gradient(90deg, rgba(255,255,255,0.02) 1px, transparent 1px);
+    background-size: 48px 48px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .container { max-width: 1100px; margin: 0 auto; padding: 40px 24px 80px; position: relative; z-index: 1; }
+
+  .glass-card {
+    background: var(--glass-bg);
+    backdrop-filter: blur(20px);
+    border: 1px solid var(--glass-border);
+    border-radius: 20px;
+    padding: 28px 32px;
+    transition: all 0.25s;
+    margin-bottom: 20px;
+  }
+
+  .header { text-align: center; margin-bottom: 48px; }
+  .header-badge { display: inline-flex; align-items: center; gap: 8px; background: rgba(124,58,237,0.15); border: 1px solid rgba(124,58,237,0.35); border-radius: 100px; padding: 6px 16px; font-size: 12px; font-weight: 500; color: #a78bfa; margin-bottom: 20px; }
+  .header h1 { font-size: clamp(32px, 5vw, 52px); font-weight: 700; background: linear-gradient(135deg, #f1f5f9 0%, #a78bfa 50%, #67e8f9 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; margin-bottom: 14px; }
+  .header p { font-size: 16px; color: var(--text-secondary); max-width: 580px; margin: 0 auto; }
+
+  .btn-primary {
+    background: linear-gradient(135deg, #7c3aed, #06b6d4);
+    border: none;
+    border-radius: 14px;
+    padding: 14px 24px;
+    font-weight: 600;
+    font-size: 15px;
+    color: white;
+    cursor: pointer;
+    transition: transform 0.2s, box-shadow 0.2s;
+    width: 100%;
+  }
+  .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 12px 30px rgba(124,58,237,0.4); }
+
+  .file-zone {
+    border: 2px dashed rgba(124,58,237,0.5);
+    border-radius: 20px;
+    padding: 40px 20px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s;
+    margin-bottom: 20px;
+  }
+  .file-zone:hover { border-color: #7c3aed; background: rgba(124,58,237,0.05); }
+
+  .preview-table { overflow-x: auto; font-size: 13px; margin: 20px 0; }
+  .preview-table table { width: 100%; border-collapse: collapse; }
+  .preview-table th, .preview-table td { padding: 8px 12px; border-bottom: 1px solid rgba(255,255,255,0.1); text-align: left; }
+
+  select, .target-selector { background: rgba(0,0,0,0.4); border: 1px solid var(--glass-border); border-radius: 12px; padding: 12px 16px; color: white; width: 100%; font-family: monospace; margin-top: 8px; }
+
+  .result-card { margin-top: 20px; animation: fadeInUp 0.4s ease; }
+  .model-name { font-size: 28px; font-weight: 700; background: linear-gradient(135deg, #fff, #a78bfa); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+  .stat-row { display: flex; gap: 12px; flex-wrap: wrap; margin: 16px 0; }
+  .stat-pill { background: rgba(255,255,255,0.05); border-radius: 12px; padding: 8px 14px; }
+  .pros-cons { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin: 20px 0; }
+  @media (max-width: 640px) { .pros-cons { grid-template-columns: 1fr; } }
+  .pros, .cons { background: rgba(0,0,0,0.3); border-radius: 16px; padding: 16px; border-top: 2px solid; }
+  .pros { border-top-color: #10b981; }
+  .cons { border-top-color: #ef4444; }
+  .metric-bar-wrap { background: rgba(255,255,255,0.1); border-radius: 20px; height: 8px; overflow: hidden; }
+  .metric-bar { height: 100%; width: 0%; transition: width 1s ease; }
+  .code-block { background: #0f0f1a; border-radius: 16px; padding: 20px; position: relative; font-family: 'JetBrains Mono', monospace; font-size: 13px; overflow-x: auto; }
+  .copy-btn { position: absolute; top: 12px; right: 12px; background: rgba(255,255,255,0.1); border: none; border-radius: 8px; padding: 6px 12px; cursor: pointer; color: white; }
+
+  @keyframes fadeInUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+</style>
+</head>
+<body>
+
+<div class="container">
+  <div class="header">
+    <div class="header-badge">⚡ AutoML Intelligence</div>
+    <h1>Upload Dataset → Get Model Suggestion</h1>
+    <p>Just provide a CSV file. We'll automatically detect task type, data shape, and recommend the best ML model with code.</p>
+  </div>
+
+  <div class="glass-card">
+    <div class="file-zone" id="uploadZone">
+      <i class="fas fa-cloud-upload-alt" style="font-size: 40px; opacity: 0.7;"></i>
+      <p style="margin-top: 12px;">Click or drag CSV file here</p>
+      <input type="file" id="csvFile" accept=".csv" style="display: none;">
+    </div>
+
+    <div id="dataInfo" style="display: none;">
+      <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 20px;">
+        <div><strong>📊 Dataset</strong> <span id="shapeInfo"></span></div>
+        <div><strong>🧩 Missing values:</strong> <span id="missingInfo"></span></div>
+      </div>
+      <div class="preview-table" id="preview"></div>
+      
+      <label><strong>🎯 Select Target Column (what you want to predict)</strong></label>
+      <select id="targetSelect" class="target-selector"></select>
+      <button id="analyzeBtn" class="btn-primary" style="margin-top: 20px;">🚀 Recommend Model</button>
+    </div>
+  </div>
+
+  <div id="recommendation" style="display: none;"></div>
+</div>
+
+<script>
+// Model database (simplified from previous, but extended with automatic inference)
+const MODEL_DB = {
+  binary_classification: {
+    name: "XGBoost Classifier",
+    confidence: 92,
+    desc: "Gradient boosting framework that handles missing values, non‑linearities, and provides high accuracy with little tuning.",
+    complexity: "Medium", training: "Fast", interpretability: "Medium",
+    pros: ["Handles missing values natively", "Built‑in regularization", "Feature importance", "Fast training"],
+    cons: ["Requires hyperparameter tuning", "Less interpretable than logistic regression"],
+    metrics: { accuracy: 88, speed: 82, scalability: 85 },
+    code: (target) => `from xgboost import XGBClassifier
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import LabelEncoder
+
+# Assume X (features) and y (target) are already defined
+# For categorical columns, use: df = pd.get_dummies(df, columns=['cat_col'])
+
+model = XGBClassifier(n_estimators=300, learning_rate=0.05, max_depth=6, random_state=42)
+model.fit(X_train, y_train)
+preds = model.predict(X_test)
+print(classification_report(y_test, preds))`
+  },
+  multiclass_classification: {
+    name: "LightGBM Classifier",
+    confidence: 89,
+    desc: "Leaf‑wise tree growth with histogram‑based algorithm — extremely fast, low memory, great for many classes.",
+    complexity: "Medium", training: "Very Fast", interpretability: "Medium",
+    pros: ["Very fast training", "Handles high cardinality", "Low memory", "Supports categorical features directly"],
+    cons: ["Can overfit on small data", "Leaf‑wise splits may create deep trees"],
+    metrics: { accuracy: 85, speed: 95, scalability: 92 },
+    code: (target) => `import lightgbm as lgb
+model = lgb.LGBMClassifier(n_estimators=500, learning_rate=0.05, num_leaves=63, random_state=42)
+model.fit(X_train, y_train, eval_set=[(X_test, y_test)], callbacks=[lgb.early_stopping(50)])
+print(f"Accuracy: {accuracy_score(y_test, model.predict(X_test)):.4f}")`
+  },
+  regression: {
+    name: "Gradient Boosting Regressor",
+    confidence: 91,
+    desc: "Sequential ensemble of decision trees – robust, handles non‑linear relationships, and offers feature importance.",
+    complexity: "Medium", training: "Moderate", interpretability: "Medium",
+    pros: ["Handles non‑linear patterns", "Robust to outliers with Huber loss", "Feature importance built‑in"],
+    cons: ["Sensitive to learning rate", "Sequential training"],
+    metrics: { r2: 87, speed: 70, scalability: 72 },
+    code: (target) => `from sklearn.ensemble import GradientBoostingRegressor
+model = GradientBoostingRegressor(n_estimators=300, learning_rate=0.05, max_depth=5, random_state=42)
+model.fit(X_train, y_train)
+preds = model.predict(X_test)
+print(f"RMSE: {np.sqrt(mean_squared_error(y_test, preds)):.4f}, R²: {r2_score(y_test, preds):.4f}")`
+  },
+  time_series: {
+    name: "LSTM / Prophet",
+    confidence: 86,
+    desc: "Deep learning or statistical models designed for temporal dependencies and seasonality.",
+    complexity: "High", training: "Slow", interpretability: "Low",
+    pros: ["Captures long‑range patterns", "Handles multivariate inputs"],
+    cons: ["Needs large data", "Computationally expensive"],
+    metrics: { mape: 82, speed: 35, scalability: 75 },
+    code: (target) => `# For time series, consider:
+# 1. Facebook Prophet (easiest)
+from prophet import Prophet
+model = Prophet()
+model.fit(df[['ds','y']])
+future = model.make_future_dataframe(periods=30)
+forecast = model.predict(future)`
+  },
+  clustering: {
+    name: "HDBSCAN / K‑Means",
+    confidence: 83,
+    desc: "Density‑based clustering finds arbitrary shapes and outliers; K‑Means for spherical groups.",
+    complexity: "Low", training: "Fast", interpretability: "High",
+    pros: ["No labels needed", "Scales well", "HDBSCAN handles noise"],
+    cons: ["Curse of dimensionality", "Parameter sensitive"],
+    metrics: { silhouette: 74, speed: 88, scalability: 82 },
+    code: (target) => `from sklearn.cluster import KMeans
+from sklearn.preprocessing import StandardScaler
+scaler = StandardScaler()
+X_scaled = scaler.fit_transform(X)
+kmeans = KMeans(n_clusters=3, random_state=42)
+clusters = kmeans.fit_predict(X_scaled)`
+  },
+  anomaly_detection: {
+    name: "Isolation Forest",
+    confidence: 88,
+    desc: "Isolates anomalies by random partitioning – fast, scalable, and needs no labelled anomalies.",
+    complexity: "Low", training: "Very Fast", interpretability: "Medium",
+    pros: ["No labels needed", "Linear time complexity", "Works on high‑dim data"],
+    cons: ["Contamination parameter must be set", "Struggles with local anomalies"],
+    metrics: { auc: 85, speed: 94, memory: 88 },
+    code: (target) => `from sklearn.ensemble import IsolationForest
+model = IsolationForest(contamination=0.05, random_state=42)
+outliers = model.fit_predict(X)   # -1 = anomaly, 1 = normal`
+  }
+};
+
+let rawData = null, columns = [], previewData = null;
+
+// File upload handling
+const uploadZone = document.getElementById('uploadZone');
+const fileInput = document.getElementById('csvFile');
+uploadZone.addEventListener('click', () => fileInput.click());
+fileInput.addEventListener('change', handleFile);
+
+function handleFile(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  Papa.parse(file, { header: true, dynamicTyping: true, skipEmptyLines: true, complete: (results) => {
+    rawData = results.data;
+    if (!rawData.length) { alert("Empty CSV"); return; }
+    columns = Object.keys(rawData[0]);
+    previewData = rawData.slice(0, 5);
+    displayDataInfo();
+    document.getElementById('dataInfo').style.display = 'block';
+  }});
+}
+
+function displayDataInfo() {
+  const nRows = rawData.length;
+  const nCols = columns.length;
+  document.getElementById('shapeInfo').innerHTML = `${nRows} rows × ${nCols} columns`;
+  let missingTotal = 0;
+  columns.forEach(col => {
+    missingTotal += rawData.filter(r => r[col] === undefined || r[col] === null || r[col] === "").length;
+  });
+  document.getElementById('missingInfo').innerHTML = `${missingTotal} (${(missingTotal/(nRows*nCols)*100).toFixed(1)}%)`;
+  const previewHtml = `<table><thead><tr>${columns.map(c => `<th>${c}</th>`).join('')}</tr></thead><tbody>${previewData.map(row => `<tr>${columns.map(c => `<td>${row[c] !== undefined ? row[c] : ''}</td>`).join('')}</tr>`).join('')}</tbody></table>`;
+  document.getElementById('preview').innerHTML = previewHtml;
+  const targetSelect = document.getElementById('targetSelect');
+  targetSelect.innerHTML = columns.map(col => `<option value="${col}">${col}</option>`).join('');
+}
+
+document.getElementById('analyzeBtn').addEventListener('click', () => {
+  const targetCol = document.getElementById('targetSelect').value;
+  if (!targetCol) return;
+  const targetValues = rawData.map(row => row[targetCol]).filter(v => v !== undefined && v !== null && v !== "");
+  if (targetValues.length === 0) { alert("Target column has no valid values."); return; }
+  const uniqueVals = [...new Set(targetValues)];
+  const isNumericTarget = typeof targetValues[0] === 'number';
+  const cardinality = uniqueVals.length;
+  
+  // Decide task type
+  let taskType = "regression";
+  if (!isNumericTarget || cardinality <= 20) {
+    if (cardinality === 2) taskType = "binary_classification";
+    else if (cardinality <= 20) taskType = "multiclass_classification";
+    else taskType = "clustering"; // fallback if too many categories but not numeric? treat as clustering?
+  }
+  // Additional heuristics: if timestamp columns exist, could be time series (simplified)
+  const hasDate = columns.some(c => c.toLowerCase().includes('date') || c.toLowerCase().includes('time'));
+  if (hasDate && isNumericTarget) taskType = "time_series";
+  if (taskType === "clustering") taskType = "clustering";
+  
+  const modelInfo = MODEL_DB[taskType] || MODEL_DB.regression;
+  renderRecommendation(modelInfo, taskType, targetCol);
+});
+
+function renderRecommendation(model, taskType, targetCol) {
+  const recDiv = document.getElementById('recommendation');
+  recDiv.style.display = 'block';
+  recDiv.innerHTML = `
+    <div class="glass-card result-card">
+      <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap;">
+        <div><span class="rec-badge" style="background: rgba(124,58,237,0.2); padding: 4px 12px; border-radius: 40px; font-size: 12px;">⭐ TOP RECOMMENDATION</span>
+        <div class="model-name">${model.name}</div></div>
+        <div style="text-align: center;"><div style="font-size: 32px; font-weight: 700; color: #a78bfa;">${model.confidence}%</div><div style="font-size: 12px;">Confidence</div></div>
+      </div>
+      <p style="margin: 16px 0; color: var(--text-secondary);">${model.desc}</p>
+      <div class="stat-row">
+        <div class="stat-pill">Complexity: ${model.complexity}</div>
+        <div class="stat-pill">Training: ${model.training}</div>
+        <div class="stat-pill">Interpretability: ${model.interpretability}</div>
+      </div>
+      <div class="pros-cons">
+        <div class="pros"><strong>✦ Strengths</strong><ul style="margin-top: 8px; list-style: none;">${model.pros.map(p => `<li style="margin-bottom: 6px;">✓ ${p}</li>`).join('')}</ul></div>
+        <div class="cons"><strong>✦ Limitations</strong><ul style="margin-top: 8px; list-style: none;">${model.cons.map(c => `<li style="margin-bottom: 6px;">✗ ${c}</li>`).join('')}</ul></div>
+      </div>
+      <div style="margin: 20px 0;">
+        <div style="margin-bottom: 12px; font-weight: 600;">📊 Estimated Performance</div>
+        ${Object.entries(model.metrics).map(([k,v]) => `<div style="margin-bottom: 12px;"><div style="display: flex; justify-content: space-between; margin-bottom: 4px;"><span>${k.toUpperCase()}</span><span>${v}%</span></div><div class="metric-bar-wrap"><div class="metric-bar" style="width:0%; background: linear-gradient(90deg, #7c3aed, #06b6d4);" data-target="${v}"></div></div></div>`).join('')}
+      </div>
+      <div class="code-block">
+        <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+        <pre style="margin:0; white-space: pre-wrap; font-family: monospace;">${model.code(targetCol)}</pre>
+      </div>
+      <p style="margin-top: 16px; font-size: 13px; color: var(--text-muted);">✅ Task detected: <strong>${taskType.replace('_',' ')}</strong> — based on target column ‘${targetCol}’ (${document.getElementById('targetSelect').options[document.getElementById('targetSelect').selectedIndex]?.text}). Adjust preprocessing as needed.</p>
+    </div>
+  `;
+  setTimeout(() => {
+    document.querySelectorAll('.metric-bar').forEach(bar => { bar.style.width = bar.dataset.target + '%'; });
+  }, 100);
+  recDiv.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+window.copyCode = function(btn) {
+  const pre = btn.parentElement.querySelector('pre');
+  const code = pre.innerText;
+  navigator.clipboard.writeText(code).then(() => {
+    btn.textContent = "Copied!";
+    setTimeout(() => btn.textContent = "Copy", 2000);
+  });
+}
+</script>
+<!-- Font Awesome for icons (optional) -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+</body>
+</html>
