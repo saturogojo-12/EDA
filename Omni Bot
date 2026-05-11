@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+  <title>OmniBot · News + Voice + Camera AI</title>
+  <!-- Google Fonts + Font Awesome -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'Inter', sans-serif;
+      background: linear-gradient(145deg, #0b1120 0%, #0a0f1a 100%);
+      min-height: 100vh;
+      padding: 1.2rem;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+    .app-container {
+      width: 100%;
+      max-width: 1300px;
+      height: 92vh;
+      background: rgba(12, 20, 32, 0.65);
+      backdrop-filter: blur(14px);
+      border-radius: 2rem;
+      border: 1px solid rgba(255,255,255,0.15);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      box-shadow: 0 25px 40px rgba(0,0,0,0.4);
+    }
+    /* header */
+    .header {
+      padding: 1rem 1.8rem;
+      background: rgba(0,0,0,0.3);
+      border-bottom: 1px solid rgba(255,255,255,0.1);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .logo i { font-size: 1.8rem; color: #3b82f6; }
+    .logo h2 { font-size: 1.3rem; font-weight: 600; color: white; }
+    .badge { background: rgba(59,130,246,0.2); padding: 0.2rem 0.8rem; border-radius: 2rem; font-size: 0.7rem; color: #93c5fd; }
+    .toolbar {
+      display: flex;
+      gap: 12px;
+    }
+    .tool-btn {
+      background: rgba(255,255,255,0.08);
+      border: 1px solid rgba(255,255,255,0.2);
+      border-radius: 2rem;
+      padding: 0.5rem 1rem;
+      color: #e2e8f0;
+      cursor: pointer;
+      transition: 0.2s;
+      font-size: 0.8rem;
+    }
+    .tool-btn i { margin-right: 6px; }
+    .tool-btn:hover { background: #3b82f6; border-color: #3b82f6; transform: translateY(-1px); }
+    /* main grid: chat + side panel */
+    .main-grid {
+      display: flex;
+      flex: 1;
+      overflow: hidden;
+    }
+    .chat-panel {
+      flex: 2;
+      display: flex;
+      flex-direction: column;
+      border-right: 1px solid rgba(255,255,255,0.08);
+    }
+    .messages-area {
+      flex: 1;
+      overflow-y: auto;
+      padding: 1.2rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+    .message {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      max-width: 85%;
+      animation: fadeIn 0.2s ease;
+    }
+    .user-message { align-self: flex-end; flex-direction: row-reverse; }
+    .bot-message { align-self: flex-start; }
+    .bubble {
+      background: rgba(30, 41, 59, 0.8);
+      border-radius: 1.4rem;
+      padding: 0.7rem 1rem;
+      border: 1px solid rgba(255,255,255,0.1);
+      font-size: 0.9rem;
+      line-height: 1.45;
+      color: #e2e8f0;
+    }
+    .user-message .bubble {
+      background: linear-gradient(125deg, #3b82f6, #6366f1);
+      color: white;
+      border: none;
+    }
+    .msg-icon { width: 32px; height: 32px; background: rgba(100,116,139,0.3); border-radius: 50%; display: flex; align-items: center; justify-content: center; }
+    .news-card {
+      background: rgba(0,0,0,0.3);
+      border-radius: 1rem;
+      padding: 0.7rem;
+      margin-top: 0.5rem;
+      border-left: 3px solid #3b82f6;
+    }
+    .news-title { font-weight: 600; margin-bottom: 4px; }
+    .input-area {
+      padding: 1rem;
+      background: rgba(0,0,0,0.4);
+      border-top: 1px solid rgba(255,255,255,0.1);
+      display: flex;
+      gap: 10px;
+    }
+    .input-area input {
+      flex: 1;
+      background: rgba(15,23,42,0.8);
+      border: 1px solid rgba(255,255,255,0.2);
+      border-radius: 3rem;
+      padding: 0.8rem 1.2rem;
+      color: white;
+      outline: none;
+    }
+    .input-area button {
+      background: #3b82f6;
+      border: none;
+      width: 44px;
+      border-radius: 44px;
+      color: white;
+      cursor: pointer;
+    }
+    .side-panel {
+      flex: 1;
+      background: rgba(0,0,0,0.2);
+      padding: 1.2rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+      overflow-y: auto;
+    }
+    .camera-box {
+      background: rgba(0,0,0,0.5);
+      border-radius: 1rem;
+      padding: 0.8rem;
+      text-align: center;
+    }
+    video, #photoCanvas { width: 100%; border-radius: 1rem; background: #000; }
+    #photoCanvas { display: none; }
+    .voice-status { font-size: 0.7rem; color: #4ade80; margin-top: 4px; }
+    @keyframes fadeIn { from { opacity:0; transform: translateY(8px); } to { opacity:1; transform: translateY(0); } }
+    @media (max-width: 800px) { .main-grid { flex-direction: column; } .chat-panel { border-right: none; } }
+    ::-webkit-scrollbar { width: 4px; }
+  </style>
+</head>
+<body>
+<div class="app-container">
+  <div class="header">
+    <div class="logo"><i class="fas fa-globe-americas"></i><h2>OmniBot AI</h2><span class="badge">live news · voice · camera</span></div>
+    <div class="toolbar">
+      <button id="newsBtn" class="tool-btn"><i class="fas fa-newspaper"></i> Top News</button>
+      <button id="voiceBtn" class="tool-btn"><i class="fas fa-microphone"></i> Voice</button>
+      <button id="cameraBtn" class="tool-btn"><i class="fas fa-camera"></i> Camera</button>
+    </div>
+  </div>
+  <div class="main-grid">
+    <div class="chat-panel">
+      <div class="messages-area" id="chatMessages">
+        <div class="message bot-message">
+          <div class="msg-icon"><i class="fas fa-robot"></i></div>
+          <div class="bubble">🌍 Hello! I'm OmniBot. I can fetch live world news (via BBC/Google RSS), listen to your voice, and even use your camera. Ask me: "news about AI", "latest headlines", or just talk. Try the voice button or type below.</div>
+        </div>
+      </div>
+      <div class="input-area">
+        <input type="text" id="userInput" placeholder="Type or say something... (e.g., 'news climate')" autocomplete="off">
+        <button id="sendBtn"><i class="fas fa-paper-plane"></i></button>
+      </div>
+    </div>
+    <div class="side-panel">
+      <div class="camera-box">
+        <div style="font-size:0.8rem; margin-bottom: 6px;"><i class="fas fa-video"></i> Camera snapshot</div>
+        <video id="video" autoplay playsinline style="width:100%; border-radius:12px;"></video>
+        <button id="snapshotBtn" style="margin-top: 8px; background:#3b82f6; border:none; padding:6px 12px; border-radius:40px; color:white;"><i class="fas fa-camera-retro"></i> Capture photo</button>
+        <canvas id="photoCanvas" width="200" height="150" style="display:none;"></canvas>
+        <div id="cameraStatus" class="voice-status" style="color:#a78bfa;">📸 Click capture → share with bot</div>
+      </div>
+      <div class="camera-box" style="background:rgba(0,0,0,0.4);">
+        <div><i class="fas fa-microphone-alt"></i> Voice control</div>
+        <div id="voiceStatusText" class="voice-status">🎤 Press 'Voice' button & speak</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  // ------------------- GLOBALS -------------------
+  const chatContainer = document.getElementById('chatMessages');
+  const userInput = document.getElementById('userInput');
+  const sendBtn = document.getElementById('sendBtn');
+  const newsBtn = document.getElementById('newsBtn');
+  const voiceBtn = document.getElementById('voiceBtn');
+  const cameraBtn = document.getElementById('cameraBtn');
+  const snapshotBtn = document.getElementById('snapshotBtn');
+  const video = document.getElementById('video');
+  const photoCanvas = document.getElementById('photoCanvas');
+  let mediaStream = null;
+  let recognition = null;
+
+  // ----- helper: append message (text or HTML)
+  function appendMessage(text, isUser = false, extraHtml = null) {
+    const msgDiv = document.createElement('div');
+    msgDiv.className = `message ${isUser ? 'user-message' : 'bot-message'}`;
+    const icon = isUser ? '<i class="fas fa-user"></i>' : '<i class="fas fa-robot"></i>';
+    let content = `<div class="msg-icon">${icon}</div><div class="bubble">${text}</div>`;
+    if (extraHtml) content = `<div class="msg-icon">${icon}</div><div class="bubble">${extraHtml}</div>`;
+    msgDiv.innerHTML = content;
+    chatContainer.appendChild(msgDiv);
+    chatContainer.scrollTop = chatContainer.scrollHeight;
+  }
+
+  // simulate "thinking" delay
+  function showTypingAndRespond(responseCallback) {
+    const typingDiv = document.createElement('div');
+    typingDiv.className = 'message bot-message';
+    typingDiv.id = 'typingIndicator';
+    typingDiv.innerHTML = `<div class="msg-icon"><i class="fas fa-robot"></i></div><div class="bubble" style="background:rgba(30,41,59,0.6);">✦ thinking ✦</div>`;
+    chatContainer.appendChild(typingDiv);
+    chatContainer.scrollTop = chatContainer.scrollHeight;
+    setTimeout(() => {
+      document.getElementById('typingIndicator')?.remove();
+      responseCallback();
+    }, 400);
+  }
+
+  // ---------- NEWS ENGINE (RSS2JSON, free, no key) ----------
+  async function fetchNewsFromRSS(rssUrl, sourceName) {
+    const proxy = `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(rssUrl)}`;
+    try {
+      const res = await fetch(proxy);
+      const data = await res.json();
+      if (data && data.items && data.items.length) {
+        return data.items.slice(0, 5).map(item => ({ title: item.title, link: item.link, pubDate: item.pubDate }));
+      }
+      return [];
+    } catch(e) { console.warn(e); return []; }
+  }
+
+  async function getTopWorldNews() {
+    // BBC world news RSS
+    const bbcRss = "http://feeds.bbci.co.uk/news/world/rss.xml";
+    const items = await fetchNewsFromRSS(bbcRss, "BBC World");
+    if (items.length === 0) return "⚠️ Could not fetch live news. Try again later.";
+    let html = `<div><i class="fas fa-globe"></i> <strong>🌍 Top World News (BBC)</strong></div>`;
+    items.forEach(item => {
+      html += `<div class="news-card"><div class="news-title">📰 ${escapeHtml(item.title)}</div><div style="font-size:10px; opacity:0.7;">${item.pubDate?.slice(0,16) || ''}</div></div>`;
+    });
+    html += `<div style="margin-top:6px; font-size:11px;">✅ Use "search news about [topic]" to find specific news.</div>`;
+    return html;
+  }
+
+  async function searchNewsByKeyword(keyword) {
+    if (!keyword || keyword.length < 2) return "Please provide a longer keyword.";
+    const googleRss = `https://news.google.com/rss/search?q=${encodeURIComponent(keyword)}&hl=en-US&gl=US&ceid=US:en`;
+    const items = await fetchNewsFromRSS(googleRss, "Google News");
+    if (!items.length) return `No news found for "${keyword}". Try another term.`;
+    let html = `<div><i class="fas fa-search"></i> <strong>🔎 News results for: "${escapeHtml(keyword)}"</strong></div>`;
+    items.slice(0, 6).forEach(item => {
+      html += `<div class="news-card"><div class="news-title">📌 ${escapeHtml(item.title)}</div><div style="font-size:10px;">${item.pubDate?.slice(0,16) || ''}</div></div>`;
+    });
+    return html;
+  }
+
+  function escapeHtml(str) { return str.replace(/[&<>]/g, function(m){if(m==='&') return '&amp;'; if(m==='<') return '&lt;'; if(m==='>') return '&gt;'; return m;}); }
+
+  // ----- BOT RESPONSE (text + news actions)-----
+  async function botProcess(userText) {
+    const lower = userText.toLowerCase();
+    // news commands
+    if (lower.includes("top news") || lower.includes("latest headlines") || (lower === "news")) {
+      const newsHtml = await getTopWorldNews();
+      appendMessage("", false, newsHtml);
+      return;
+    }
+    if (lower.includes("search news about") || lower.includes("news about") || lower.includes("news for")) {
+      let keyword = "";
+      if (lower.includes("search news about")) keyword = userText.match(/search news about (.+)/i)?.[1];
+      if (!keyword && lower.includes("news about")) keyword = userText.match(/news about (.+)/i)?.[1];
+      if (!keyword && lower.includes("news for")) keyword = userText.match(/news for (.+)/i)?.[1];
+      if (keyword) {
+        const newsHtml = await searchNewsByKeyword(keyword.trim());
+        appendMessage("", false, newsHtml);
+        return;
+      } else {
+        appendMessage("Please specify a topic, e.g., 'news about climate change'", false);
+        return;
+      }
+    }
+    if (lower.match(/hello|hi|hey|greetings/)) {
+      appendMessage("👋 Hello! I can show live world news, search news by keyword, listen to your voice, or capture camera photos. Ask me 'top news' or 'news about AI'!", false);
+      return;
+    }
+    if (lower.includes("camera") && lower.includes("photo")) {
+      appendMessage("📸 Use the 'Camera' button to open live video, then click 'Capture photo'. I'll see the image (you can then ask me to search news about what you see).", false);
+      return;
+    }
+    if (lower.includes("voice")) {
+      appendMessage("🎤 Click the 'Voice' button and speak your query. I'll transcribe it and answer or search news accordingly.", false);
+      return;
+    }
+    // default answer + help
+    appendMessage(`I'm your multimodal assistant. Try:\n• "top news" → live world headlines\n• "news about [topic]" → search world news\n• Use camera snapshot → then ask me to search news about the picture\n• Voice button to speak. I'll fetch fresh data for you.`, false);
+  }
+
+  // ------ VOICE RECOGNITION ------
+  function initSpeechRecog() {
+    if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
+      document.getElementById('voiceStatusText').innerHTML = "❌ Speech recognition not supported in this browser.";
+      return null;
+    }
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    const recog = new SpeechRecognition();
+    recog.continuous = false;
+    recog.interimResults = false;
+    recog.lang = 'en-US';
+    recog.onstart = () => { document.getElementById('voiceStatusText').innerHTML = "🎙️ Listening... speak now"; };
+    recog.onend = () => { document.getElementById('voiceStatusText').innerHTML = "🎤 Voice ready (press button)"; };
+    recog.onresult = (event) => {
+      const transcript = event.results[0][0].transcript;
+      document.getElementById('voiceStatusText').innerHTML = `🗣️ You said: "${transcript}"`;
+      userInput.value = transcript;
+      handleUserMessage(transcript);
+    };
+    recog.onerror = (e) => { document.getElementById('voiceStatusText').innerHTML = `⚠️ Error: ${e.error}`; };
+    return recog;
+  }
+
+  // ----- CAMERA & SNAPSHOT -----
+  async function startCamera() {
+    if (mediaStream) {
+      mediaStream.getTracks().forEach(track => track.stop());
+    }
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+      mediaStream = stream;
+      video.srcObject = stream;
+      document.getElementById('cameraStatus').innerHTML = "✅ Camera active. Click 'Capture photo'.";
+    } catch(err) {
+      document.getElementById('cameraStatus').innerHTML = "❌ Camera access denied or error.";
+      console.error(err);
+    }
+  }
+
+  function capturePhoto() {
+    if (!video.srcObject) {
+      alert("Start camera first (click Camera button).");
+      return;
+    }
+    const context = photoCanvas.getContext('2d');
+    photoCanvas.width = video.videoWidth;
+    photoCanvas.height = video.videoHeight;
+    context.drawImage(video, 0, 0, photoCanvas.width, photoCanvas.height);
+    const imageData = photoCanvas.toDataURL('image/png');
+    // show thumbnail in chat
+    const imgHtml = `<div><i class="fas fa-image"></i> 📸 Captured photo</div><img src="${imageData}" style="max-width:180px; border-radius:12px; margin-top:6px;"><div style="font-size:12px; margin-top:4px;">✨ You can now ask: "search news about this photo" or describe what you see, I'll fetch relevant news.</div>`;
+    appendMessage("", false, imgHtml);
+    // Optional: simulate scene analysis (simple reply)
+    setTimeout(() => {
+      appendMessage("I see you captured an image. Would you like me to search world news related to this scene? Just say 'news about [topic]' or type a keyword.", false);
+    }, 600);
+  }
+
+  // ------ MAIN HANDLER ------
+  async function handleUserMessage(text) {
+    if (!text.trim()) return;
+    appendMessage(text, true);
+    userInput.value = '';
+    showTypingAndRespond(async () => {
+      await botProcess(text);
+    });
+  }
+
+  // event listeners
+  sendBtn.addEventListener('click', () => { if (userInput.value.trim()) handleUserMessage(userInput.value); });
+  userInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') handleUserMessage(userInput.value); });
+
+  newsBtn.addEventListener('click', async () => {
+    appendMessage("Fetching top world headlines...", false);
+    const newsHtml = await getTopWorldNews();
+    appendMessage("", false, newsHtml);
+  });
+
+  // voice setup
+  if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+    recognition = initSpeechRecog();
+    voiceBtn.addEventListener('click', () => {
+      if (recognition) {
+        try { recognition.start(); } catch(e){ console.log(e); }
+      } else alert("Speech recognition not ready");
+    });
+  } else {
+    voiceBtn.disabled = true;
+    voiceBtn.style.opacity = 0.5;
+    document.getElementById('voiceStatusText').innerHTML = "❌ Voice not supported";
+  }
+
+  // camera button
+  cameraBtn.addEventListener('click', () => {
+    startCamera();
+  });
+  snapshotBtn.addEventListener('click', capturePhoto);
+
+  // preload camera off? no, but ensure permissions on click.
+  window.addEventListener('load', () => {
+    // quiet start
+    console.log("OmniBot ready. Use voice, camera, news.");
+  });
+</script>
+</body>
+</html>
